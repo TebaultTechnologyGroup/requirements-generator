@@ -10,10 +10,10 @@ const schema = a.schema({
       constraints: a.string(),
       additionalContext: a.string(),
     })
-    .returns(a.json())
+    .returns(a.string())
     .authorization((allow) => [allow.authenticated()])
-    .handler(a.handler.function('generate-prd')),
-    
+    .handler(a.handler.function('generatePRD')),
+
   UserProfile: a
     .model({
       userId: a.string().required(),
