@@ -9,7 +9,7 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 
 export default function ProjectDetailPage() {
-    const { id } = useParams({ from: '/project/$id' });
+    //const { id } = useParams({ from: '/project/$id' });
     const [tab, setTab] = useState(0);
 
     // TODO: fetch project by id from Amplify Data
