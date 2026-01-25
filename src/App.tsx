@@ -110,11 +110,11 @@ function App() {
             generationsThisMonth: 0,
             monthResetDate: new Date().toISOString(),
           });
-          setQuota({ used: 0, limit: getPlanLimit(profile.plan) });
+          setQuota({ used: 0, limit: getPlanLimit(profile.plan ?? 5) });
         } else {
           setQuota({
             used: profile.generationsThisMonth || 0,
-            limit: getPlanLimit(profile.plan),
+            limit: getPlanLimit(profile.plan ?? 5),
           });
         }
       }
@@ -123,8 +123,9 @@ function App() {
     }
   }
 
-  function getPlanLimit(plan: string): number {
-    switch (plan) {
+  function getPlanLimit(plan: string | number): number {
+    const planStr = String(plan);
+    switch (planStr) {
       case 'FREE': return 5;
       case 'PRO': return 50;
       case 'ENTERPRISE': return 999999;
