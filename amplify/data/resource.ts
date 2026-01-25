@@ -1,51 +1,66 @@
-
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
 
-/**
- * SaaS-ready schema:
- * - Account: stores plan, usage, and limits
- * - Project: stores user inputs + generated PRD outputs
- * 
- * Notes:
- * - All access requires authenticated users (Cognito)
- * - Each model is isolated by owner() rules
- * - This schema supports mocked billing now + Stripe/AWS Marketplace later
- */
-
 const schema = a.schema({
-
-  // -------------------------
-  // Account Model (one-per-user)
-  // -------------------------
-  Account: a
-    .model({
-      ownerId: a.string().required(),          // Cognito user sub
-      plan: a.enum(["FREE", "PRO", "ENTERPRISE"]).default("FREE"),
-      monthlyGenerationsUsed: a.integer().default(0),
-      monthlyLimit: a.integer().default(5),    // Can be updated on upgrade
-      resetAt: a.datetime().required(),        // monthly usage reset time
+  // Custom mutation to generate PRD via Lambda
+  generatePRD: a
+    .mutation()
+    .arguments({
+      idea: a.string().required(),
+      targetMarket: a.string().required(),
+      constraints: a.string(),
+      additionalContext: a.string(),
     })
-    .identifier(["ownerId"])                   // One Account per user
-    .authorization((allow) => [
-      allow.owner(),                           // only owner reads/writes
-    ]),
-
-  // -------------------------
-  // Project Model
-  // -------------------------
-  Project: a
+    .returns(a.json())
+    .authorization((allow) => [allow.authenticated()])
+    .handler(a.handler.function('generate-prd')),
+    
+  UserProfile: a
     .model({
-      ownerId: a.string().required(),         // Cognito user sub
-      title: a.string().required(),
-      inputsJson: a.json().required(),        // { idea, targetMarket, constraints }
-      outputsJson: a.json().required(),       // { prd, stories, risks, mvp }
-      createdAt: a.datetime().required(),
-      updatedAt: a.datetime().required(),
+      userId: a.string().required(),
+      email: a.string().required(),
+      plan: a.enum(['FREE', 'PRO', 'ENTERPRISE']),
+      generationsThisMonth: a.integer().default(0),
+      monthResetDate: a.string(),
     })
     .authorization((allow) => [
-      allow.owner(),                          // full CRUD for owner
+      allow.owner(),
+      allow.authenticated().to(['read'])
     ]),
 
+  Generation: a
+    .model({
+      userId: a.string().required(),
+      idea: a.string().required(),
+      targetMarket: a.string().required(),
+      constraints: a.string(),
+      additionalContext: a.string(),
+      
+      // Output fields
+      productRequirements: a.json(),
+      userStories: a.json(),
+      risks: a.json(),
+      mvpScope: a.json(),
+      
+      // Metadata
+      status: a.enum(['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED']),
+      createdAt: a.datetime(),
+      completedAt: a.datetime(),
+      errorMessage: a.string(),
+    })
+    .authorization((allow) => [
+      allow.owner(),
+    ]),
+
+  PlanQuota: a
+    .model({
+      plan: a.enum(['FREE', 'PRO', 'ENTERPRISE']),
+      monthlyLimit: a.integer().required(),
+      description: a.string(),
+    })
+    .authorization((allow) => [
+      allow.authenticated().to(['read']),
+      allow.guest().to(['read'])
+    ]),
 });
 
 export type Schema = ClientSchema<typeof schema>;
@@ -53,6 +68,6 @@ export type Schema = ClientSchema<typeof schema>;
 export const data = defineData({
   schema,
   authorizationModes: {
-    defaultAuthorizationMode: "userPool",     // Require authenticated users
+    defaultAuthorizationMode: "userPool",
   },
 });

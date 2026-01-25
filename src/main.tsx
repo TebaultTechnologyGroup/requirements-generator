@@ -1,58 +1,35 @@
-
-// src/main.tsx
-import ReactDOM from 'react-dom/client';
-import { ThemeProvider, CssBaseline } from '@mui/material';
-import { theme } from './theme';
-import { configureAmplify } from './lib/amplifyClient';
-import { RouterProvider, createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import '@aws-amplify/ui-react/styles.css';
-import AuthPage from './pages/AuthPage';
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App.tsx";
+import "./index.css";
 import { Authenticator } from '@aws-amplify/ui-react';
-import DashboardPage from './pages/DashboardPage';
-import NewProjectPage from './pages/NewProjectPage';
-import ProjectDetailPage from './pages/ProjectDetailPage';
-import UpgradePage from './pages/UpgradePage';
-import AppLayout from './layouts/AppLayout';
+import { Amplify } from "aws-amplify";
+import outputs from "../amplify_outputs.json";
+import '@aws-amplify/ui-react/styles.css';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
 
-configureAmplify();
-const queryClient = new QueryClient();
-
-// Root layout with AppLayout wrapper
-const rootRoute = createRootRoute({
-  component: () => (
-    <Authenticator.Provider>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <QueryClientProvider client={queryClient}>
-          <AppLayout>
-            <Outlet />
-          </AppLayout>
-        </QueryClientProvider>
-      </ThemeProvider>
-    </Authenticator.Provider>
-  ),
+const theme = createTheme({
+  palette: {
+    mode: 'light',
+    primary: {
+      main: '#7551c2',
+    },
+    secondary: {
+      main: '#646cff',
+    },
+  },
 });
 
-// Routes
-const indexRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/',
-  component: DashboardPage,
-});
+Amplify.configure(outputs);
 
-const authRoute = createRoute({ getParentRoute: () => rootRoute, path: '/auth', component: AuthPage });
-const newRoute = createRoute({ getParentRoute: () => rootRoute, path: '/new', component: NewProjectPage });
-const projRoute = createRoute({ getParentRoute: () => rootRoute, path: '/project/$id', component: ProjectDetailPage });
-const upgradeRoute = createRoute({ getParentRoute: () => rootRoute, path: '/upgrade', component: UpgradePage });
-
-const routeTree = rootRoute.addChildren([indexRoute, authRoute, newRoute, projRoute, upgradeRoute]);
-const router = createRouter({ routeTree });
-
-declare module '@tanstack/react-router' {
-  interface Register {
-    router: typeof router;
-  }
-}
-
-ReactDOM.createRoot(document.getElementById('root')!).render(<RouterProvider router={router} />);
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Authenticator>
+        <App />
+      </Authenticator>
+    </ThemeProvider>
+  </React.StrictMode>
+);
