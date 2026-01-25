@@ -6,6 +6,7 @@ import Typography from '@mui/material/Typography';
 import Stack from '@mui/material/Stack';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
+import { Grid } from '@mui/material';
 import { Link } from '@tanstack/react-router';
 
 // Placeholder projects (we’ll replace with Amplify Data soon)
