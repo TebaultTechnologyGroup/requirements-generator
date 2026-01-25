@@ -4,7 +4,7 @@ This guide explains the prompt engineering techniques used in this application a
 
 ## Current Prompt Structure
 
-Location: `amplify/functions/generate-prd/handler.ts` → `buildPrompt()` function
+Location: `amplify/functions/generatePRD/handler.ts` → `buildPrompt()` function
 
 ### Key Techniques Used
 
