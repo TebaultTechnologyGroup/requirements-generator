@@ -7,7 +7,7 @@ import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 const backend = defineBackend({
   auth,
   data,
-  generatePRD,
+  generatePRD, // This name must match the schema reference
 });
 
 // Grant the Lambda function permission to invoke Bedrock

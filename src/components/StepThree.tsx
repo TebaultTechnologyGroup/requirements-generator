@@ -15,6 +15,11 @@ interface StepThreeProps {
 }
 
 export default function StepThree({ formData, onBack, onGenerate, isGenerating, error }: StepThreeProps) {
+    const handleGenerateClick = () => {
+        console.log('Generate button clicked in StepThree');
+        onGenerate();
+    };
+
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <Typography variant="h5" gutterBottom>
@@ -90,7 +95,7 @@ export default function StepThree({ formData, onBack, onGenerate, isGenerating, 
                 <Button
                     variant="contained"
                     size="large"
-                    onClick={onGenerate}
+                    onClick={handleGenerateClick}
                     disabled={isGenerating}
                     startIcon={isGenerating ? <CircularProgress size={20} /> : <AutoAwesome />}
                 >

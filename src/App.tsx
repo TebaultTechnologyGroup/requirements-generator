@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react';
 import { generateClient } from 'aws-amplify/data';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import type { Schema } from '../amplify/data/resource';
-
-
 import {
   Box,
   Container,
@@ -18,10 +16,10 @@ import {
   Chip,
 } from '@mui/material';
 import { Logout as LogoutIcon } from '@mui/icons-material';
-import StepOne from './components/StepOne.tsx';
-import StepTwo from './components/StepTwo.tsx';
-import StepThree from './components/StepThree.tsx';
-import ResultsView from './components/ResultsView.tsx';
+import StepOne from './components/StepOne';
+import StepTwo from './components/StepTwo';
+import StepThree from './components/StepThree';
+import ResultsView from './components/ResultsView';
 
 const client = generateClient<Schema>();
 
@@ -112,11 +110,11 @@ function App() {
             generationsThisMonth: 0,
             monthResetDate: new Date().toISOString(),
           });
-          setQuota({ used: 0, limit: getPlanLimit(profile.plan || 'FREE') });
+          setQuota({ used: 0, limit: getPlanLimit(profile.plan) });
         } else {
           setQuota({
             used: profile.generationsThisMonth || 0,
-            limit: getPlanLimit(profile.plan || 'FREE'),
+            limit: getPlanLimit(profile.plan),
           });
         }
       }
@@ -155,6 +153,8 @@ function App() {
   };
 
   async function handleGenerate() {
+    console.log('handleGenerate called in App.tsx');
+
     if (quota.used >= quota.limit) {
       setError('You have reached your monthly generation limit. Please upgrade your plan.');
       return;
@@ -164,6 +164,11 @@ function App() {
     setError('');
 
     try {
+      console.log('Starting generation with data:', {
+        idea: formData.idea.substring(0, 50) + '...',
+        targetMarket: formData.targetMarket.substring(0, 50) + '...',
+      });
+
       // Call the custom mutation
       const response = await client.mutations.generatePRD({
         idea: formData.idea,
@@ -172,8 +177,12 @@ function App() {
         additionalContext: formData.additionalContext || undefined,
       });
 
+      console.log('Raw response:', response);
+
       if (response.data) {
+        console.log('Response data:', response.data);
         const prdData = JSON.parse(response.data as string);
+        console.log('Parsed PRD data:', prdData);
 
         if (prdData.success) {
           setResult(prdData.data);
@@ -203,11 +212,23 @@ function App() {
             completedAt: new Date().toISOString(),
           });
         } else {
+          console.error('PRD generation failed:', prdData.error);
           setError(prdData.error || 'Failed to generate PRD');
         }
+      } else if (response.errors) {
+        console.error('GraphQL errors:', response.errors);
+        setError(`GraphQL Error: ${response.errors.map((e: any) => e.message).join(', ')}`);
+      } else {
+        console.error('No data in response');
+        setError('No data returned from generation');
       }
     } catch (err: any) {
       console.error('Generation error:', err);
+      console.error('Error details:', {
+        message: err.message,
+        stack: err.stack,
+        name: err.name
+      });
       setError(err.message || 'An error occurred during generation');
     } finally {
       setIsGenerating(false);
