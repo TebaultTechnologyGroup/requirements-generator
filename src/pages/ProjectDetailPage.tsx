@@ -1,6 +1,6 @@
 
 // src/pages/ProjectDetailPage.tsx
-import { useParams } from '@tanstack/react-router';
+//import { useParams } from '@tanstack/react-router';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import Box from '@mui/material/Box';
