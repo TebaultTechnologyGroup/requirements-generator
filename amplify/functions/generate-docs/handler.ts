@@ -4,62 +4,26 @@ import {
 } from '@aws-sdk/client-bedrock-runtime';
 
 const bedrockClient = new BedrockRuntimeClient({
-  region: process.env.BEDROCK_REGION || 'us-east-2',
+  region: process.env.AWS_REGION || 'us-east-2',
 });
-
-interface PRDInput {
-  idea: string;
-  targetMarket: string;
-  constraints?: string;
-  additionalContext?: string;
-}
-
-interface PRDOutput {
-  productRequirements: {
-    overview: string;
-    goals: string[];
-    successMetrics: string[];
-  };
-  userStories: Array<{
-    role: string;
-    action: string;
-    benefit: string;
-    acceptanceCriteria: string[];
-  }>;
-  risks: Array<{
-    category: string;
-    description: string;
-    likelihood: string;
-    impact: string;
-    mitigation: string;
-  }>;
-  mvpScope: {
-    inScope: string[];
-    outOfScope: string[];
-    timeline: string;
-    assumptions: string[];
-  };
-}
 
 export const handler = async (event: any) => {
   try {
-    const input: PRDInput = JSON.parse(event.body);
+    // AppSync passes arguments directly as the event object
+    const { idea, targetMarket, constraints, additionalContext } = event;
 
-    // Construct the prompt with schema enforcement
-    const prompt = buildPrompt(input);
+    if (!idea || !targetMarket) {
+      throw new Error('Missing required arguments: idea or targetMarket');
+    }
 
-    // Call Bedrock with Claude Haiku
+    const prompt = buildPrompt({ idea, targetMarket, constraints, additionalContext });
+
     const modelId = 'anthropic.claude-3-haiku-20240307-v1:0';
     
     const payload = {
       anthropic_version: 'bedrock-2023-05-31',
       max_tokens: 4000,
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
+      messages: [{ role: 'user', content: prompt }],
       temperature: 0.7,
     };
 
@@ -72,56 +36,53 @@ export const handler = async (event: any) => {
 
     const response = await bedrockClient.send(command);
     const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-    
-    // Extract the text content from Claude's response
     const generatedText = responseBody.content[0].text;
     
-    // Parse the JSON response with retry logic
+    // Validate JSON structure before returning
     const prdOutput = parseAndValidateJSON(generatedText);
 
-    return {
-      statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify({
-        success: true,
-        data: prdOutput,
-      }),
-    };
+    // Return the stringified result directly for the GraphQL 'returns(a.string())'
+    return JSON.stringify({
+      success: true,
+      data: prdOutput,
+    });
+
   } catch (error: any) {
     console.error('Error generating PRD:', error);
-    
-    return {
-      statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify({
-        success: false,
-        error: error.message || 'Failed to generate PRD',
-      }),
-    };
+    // Returning a stringified error so the frontend can parse it
+    return JSON.stringify({
+      success: false,
+      error: error.message || 'Failed to generate PRD',
+    });
   }
 };
 
-function buildPrompt(input: PRDInput): string {
+
+function buildPrompt({ 
+  idea, 
+  targetMarket, 
+  constraints, 
+  additionalContext 
+}: { 
+  idea: string; 
+  targetMarket: string; 
+  constraints?: string; 
+  additionalContext?: string; 
+}): string {
   return `You are a senior product manager creating a comprehensive Product Requirements Document (PRD).
 
 Generate a structured PRD based on the following information:
 
 PRODUCT IDEA:
-${input.idea}
+${idea}
 
 TARGET MARKET:
-${input.targetMarket}
+${targetMarket}
 
-${input.constraints ? `CONSTRAINTS:\n${input.constraints}\n` : ''}
-${input.additionalContext ? `ADDITIONAL CONTEXT:\n${input.additionalContext}\n` : ''}
+${constraints ? `CONSTRAINTS:\n${constraints}\n` : ''}
+${additionalContext ? `ADDITIONAL CONTEXT:\n${additionalContext}\n` : ''}
 
-CRITICAL: You must respond with ONLY valid JSON matching this exact schema. Do not include any markdown formatting, backticks, or explanatory text.
+CRITICAL: You must respond with ONLY valid JSON matching this exact schema. Do not include any markdown formatting, backticks, or introductory/explanatory text.
 
 {
   "productRequirements": {
@@ -152,29 +113,29 @@ CRITICAL: You must respond with ONLY valid JSON matching this exact schema. Do n
     "timeline": "Estimated timeline for MVP",
     "assumptions": ["Assumption 1", "Assumption 2"]
   }
+}`;
 }
 
-Generate 5-8 user stories, 4-6 risks, and be specific about MVP scope.`;
-}
+function parseAndValidateJSON(text: string): any {
+  // Claude sometimes adds conversational filler or markdown blocks. 
+  // This regex extracts the first valid JSON object found in the string.
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  const cleanedText = jsonMatch ? jsonMatch[0] : text;
 
-function parseAndValidateJSON(text: string): PRDOutput {
-  // Remove any potential markdown formatting
-  let cleanedText = text.trim();
-  
-  // Remove markdown code blocks if present
-  cleanedText = cleanedText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-  
   try {
     const parsed = JSON.parse(cleanedText);
     
-    // Basic validation
-    if (!parsed.productRequirements || !parsed.userStories || !parsed.risks || !parsed.mvpScope) {
-      throw new Error('Missing required fields in response');
+    // Validate required top-level keys
+    const requiredKeys = ['productRequirements', 'userStories', 'risks', 'mvpScope'];
+    for (const key of requiredKeys) {
+      if (!parsed[key]) {
+        throw new Error(`Missing required field: ${key}`);
+      }
     }
     
-    return parsed as PRDOutput;
+    return parsed;
   } catch (error) {
-    console.error('Failed to parse JSON:', cleanedText);
-    throw new Error('LLM returned invalid JSON format');
+    console.error('Failed to parse JSON content:', cleanedText);
+    throw new Error('The AI model generated an invalid response format. Please try again.');
   }
 }
