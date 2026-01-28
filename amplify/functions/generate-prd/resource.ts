@@ -1,7 +1,7 @@
 import { defineFunction } from '@aws-amplify/backend';
 
-export const generatePRD = defineFunction({
-  name: 'generatePRD',
+export const generateDocs = defineFunction({
+  name: 'generateDocs',
   entry: './handler.ts',
   timeoutSeconds: 120,
   environment: {
