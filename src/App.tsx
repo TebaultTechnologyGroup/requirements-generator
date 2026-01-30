@@ -171,7 +171,7 @@ function App() {
       });
 
       // Call the custom mutation
-      const response = await client.mutations.generateDocs({
+      const response = await client.mutations.generatePRD({
         idea: formData.idea,
         targetMarket: formData.targetMarket,
         constraints: formData.constraints || undefined,
