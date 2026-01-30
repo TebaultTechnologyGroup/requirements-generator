@@ -168,6 +168,8 @@ function App() {
       console.log('Starting generation with data:', {
         idea: formData.idea.substring(0, 50) + '...',
         targetMarket: formData.targetMarket.substring(0, 50) + '...',
+        constraints: formData.constraints.substring(0, 50) + '...',
+        additionalContext: formData.additionalContext.substring(0, 50) + '...'
       });
 
       // Call the custom mutation
