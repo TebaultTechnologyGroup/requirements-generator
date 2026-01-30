@@ -2,7 +2,7 @@ import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
 
 const schema = a.schema({
   // Custom mutation to generate PRD via Lambda
-  generateDocs: a
+  generatePRD: a
     .mutation()
     .arguments({
       idea: a.string().required(),
@@ -12,7 +12,7 @@ const schema = a.schema({
     })
     .returns(a.string())
     .authorization((allow) => [allow.authenticated()])
-    .handler(a.handler.function('generateDocs')),
+    .handler(a.handler.function('generatePRD')),
 
   UserProfile: a
     .model({
