@@ -10,7 +10,8 @@ const bedrockClient = new BedrockRuntimeClient({
 export const handler = async (event: any) => {
   try {
     // AppSync passes arguments directly as the event object
-    const { idea, targetMarket, constraints, additionalContext } = event;
+    const { idea, targetMarket, constraints, additionalContext } = event.arguments;
+    console.log('Received event:', event);
 
     if (!idea || !targetMarket) {
       throw new Error('Missing required arguments: idea or targetMarket');
@@ -18,7 +19,7 @@ export const handler = async (event: any) => {
 
     const prompt = buildPrompt({ idea, targetMarket, constraints, additionalContext });
 
-    const modelId = 'anthropic.claude-3-haiku-20240307-v1:0';
+    const modelId = 'us.anthropic.claude-3-haiku-20240307-v1:0';
     
     const payload = {
       anthropic_version: 'bedrock-2023-05-31',
