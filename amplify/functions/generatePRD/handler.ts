@@ -11,7 +11,6 @@ export const handler = async (event: any) => {
   try {
     // AppSync passes arguments directly as the event object
     const { idea, targetMarket, constraints, additionalContext } = event.arguments;
-    console.log('Received event:', event);
 
     if (!idea || !targetMarket) {
       throw new Error('Missing required arguments: idea or targetMarket');
