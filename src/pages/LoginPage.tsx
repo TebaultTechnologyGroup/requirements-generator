@@ -13,8 +13,8 @@ import {
   IconButton,
 } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
-import { signIn, resetPassword, confirmResetPassword } from "aws-amplify/auth";
 import { useAuthenticator } from "@aws-amplify/ui-react";
+import { signIn } from "aws-amplify/auth";
 
 type ViewState = "login" | "forgotPassword" | "resetPassword";
 
@@ -33,6 +33,7 @@ function LoginPage() {
   const { user } = useAuthenticator((context) => [context.user]);
 
   useEffect(() => {
+    // If user is already logged in, redirect to app
     if (user) {
       navigate("/app/newproject");
     }
@@ -45,8 +46,8 @@ function LoginPage() {
     setLoading(true);
 
     try {
-      await signIn({ username: email, password });
-      navigate("/app/newproject");
+      await signIn({ username: email, password: password });
+      // Navigation will be handled by AppLayout's Hub listener
     } catch (err: any) {
       console.error("Login error:", err);
 
@@ -73,7 +74,7 @@ function LoginPage() {
     setLoading(true);
 
     try {
-      await resetPassword({ username: email });
+      await forgotPassword(email);
       setSuccess(`Password reset code sent to ${email}. Check your email.`);
       setViewState("resetPassword");
     } catch (err: any) {
@@ -103,11 +104,7 @@ function LoginPage() {
     setLoading(true);
 
     try {
-      await confirmResetPassword({
-        username: email,
-        confirmationCode,
-        newPassword,
-      });
+      await Auth.forgotPasswordSubmit(email, confirmationCode, newPassword);
       setSuccess("Password reset successful! You can now sign in.");
       setViewState("login");
       setPassword("");
@@ -167,7 +164,7 @@ function LoginPage() {
                 Welcome Back
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Sign in to your Elder Care Reminder account
+                Sign in to your account
               </Typography>
             </Box>
 
@@ -466,5 +463,3 @@ function LoginPage() {
     </Box>
   );
 }
-
-export default LoginPage;

@@ -11,7 +11,7 @@ import {
   Alert,
   Grid,
 } from "@mui/material";
-import { signUp, confirmSignUp, signIn } from "aws-amplify/auth";
+import { Auth } from "aws-amplify";
 
 function RegisterPage() {
   const navigate = useNavigate();
@@ -53,16 +53,14 @@ function RegisterPage() {
     setLoading(true);
 
     try {
-      await signUp({
+      await Auth.signUp({
         username: email,
         password,
-        options: {
-          userAttributes: {
-            email,
-            given_name: firstName.trim(),
-            family_name: lastName.trim(),
-            "custom:organization": organization,
-          },
+        attributes: {
+          email,
+          given_name: firstName.trim(),
+          family_name: lastName.trim(),
+          "custom:organization": organization,
         },
       });
       setNeedsConfirmation(true);
@@ -79,12 +77,9 @@ function RegisterPage() {
     setLoading(true);
 
     try {
-      await confirmSignUp({
-        username: email,
-        confirmationCode,
-      });
+      await Auth.confirmSignUp(email, confirmationCode);
       // Auto sign in after confirmation
-      await signIn({ username: email, password });
+      await Auth.signIn(email, password);
       navigate("/app/newproject");
     } catch (err: any) {
       setError(err.message || "Failed to confirm account. Please try again.");

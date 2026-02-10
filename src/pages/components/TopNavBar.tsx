@@ -12,13 +12,13 @@ export default function TopNavBar(props: {
   plan: string;
   quota: { used: number; limit: number };
 }) {
-  const { isAuthenticated, plan, quota } = props;
+  const { plan, quota } = props;
   const { user, signOut } = useAuthenticator((context) => [context.user]);
   const navigate = useNavigate();
 
   const handleSignInOut = async () => {
     try {
-      if (isAuthenticated) {
+      if (user) {
         await signOut();
         navigate("/");
       } else {
@@ -28,6 +28,7 @@ export default function TopNavBar(props: {
       console.error("Error signing out:", error);
     }
   };
+
   return (
     <AppBar
       position="fixed"
@@ -40,7 +41,7 @@ export default function TopNavBar(props: {
           AI PRD Generator
         </Typography>
 
-        {isAuthenticated && (
+        {user && (
           <Stack direction="row" spacing={1} alignItems="center" mr={2}>
             <Chip label={`Plan: ${plan}`} size="small" />
             <Chip label={`Usage: ${quota.used}/${quota.limit}`} size="small" />
@@ -51,16 +52,18 @@ export default function TopNavBar(props: {
         )}
 
         <Stack direction="row" spacing={1} alignItems="center">
-          <Typography variant="body2">
-            {user?.signInDetails?.loginId}
-          </Typography>
+          {user && (
+            <Typography variant="body2">
+              {user.signInDetails?.loginId}
+            </Typography>
+          )}
           <Button
             onClick={handleSignInOut}
             variant="contained"
             color="primary"
             size="small"
           >
-            {isAuthenticated ? "Sign out" : "Sign in"}
+            {user ? "Sign Out" : "Sign In"}
           </Button>
         </Stack>
       </Toolbar>
