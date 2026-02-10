@@ -1,75 +1,236 @@
+import { useState } from "react";
+import { generateClient } from "aws-amplify/data";
+import { getCurrentUser } from "aws-amplify/auth";
+import type { Schema } from "../../amplify/data/resource";
+import { Container, Stepper, Step, StepLabel, Paper } from "@mui/material";
+import StepOne from "../components/StepOne";
+import StepTwo from "../components/StepTwo";
+import StepThree from "../components/StepThree";
+import ResultsView from "../components/ResultsView";
 
-// src/pages/NewProjectPage.tsx
-import { useState } from 'react';
-import { z } from 'zod';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
-import TextField from '@mui/material/TextField';
-import Button from '@mui/material/Button';
-import Paper from '@mui/material/Paper';
-import Divider from '@mui/material/Divider';
-import Alert from '@mui/material/Alert';
-import { useNavigate } from '@tanstack/react-router';
+const client = generateClient<Schema>();
 
-// Simple schema for input validation
-const IdeaSchema = z.object({
-    title: z.string().min(3),
-    idea: z.string().min(10),
-    targetMarket: z.string().min(3),
-    constraints: z.string().optional(),
-});
+const steps = ["Product Idea", "Target & Constraints", "Review & Generate"];
+
+interface FormData {
+    idea: string;
+    targetMarket: string;
+    constraints: string;
+    additionalContext: string;
+}
+
+interface PRDResult {
+    productRequirements: {
+        overview: string;
+        goals: string[];
+        successMetrics: string[];
+    };
+    userStories: Array<{
+        role: string;
+        action: string;
+        benefit: string;
+        acceptanceCriteria: string[];
+    }>;
+    risks: Array<{
+        category: string;
+        description: string;
+        likelihood: string;
+        impact: string;
+        mitigation: string;
+    }>;
+    mvpScope: {
+        inScope: string[];
+        outOfScope: string[];
+        timeline: string;
+        assumptions: string[];
+    };
+}
 
 export default function NewProjectPage() {
-    const nav = useNavigate();
-    const [form, setForm] = useState({ title: '', idea: '', targetMarket: '', constraints: '' });
-    const [error, setError] = useState<string | null>(null);
-    const [loading, setLoading] = useState(false);
+    const [activeStep, setActiveStep] = useState(0);
+    const [formData, setFormData] = useState<FormData>({
+        idea: "",
+        targetMarket: "",
+        constraints: "",
+        additionalContext: "",
+    });
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [result, setResult] = useState<PRDResult | null>(null);
+    const [error, setError] = useState<string>("");
+    const [userProfile] = useState<any>(null);
+    const [quota, setQuota] = useState({ used: 0, limit: 5 });
+
+
+    const handleNext = () => {
+        setActiveStep((prevStep) => prevStep + 1);
+    };
+
+    const handleBack = () => {
+        setActiveStep((prevStep) => prevStep - 1);
+    };
+
+    const handleReset = () => {
+        setActiveStep(0);
+        setFormData({
+            idea: "",
+            targetMarket: "",
+            constraints: "",
+            additionalContext: "",
+        });
+        setResult(null);
+        setError("");
+    };
 
     async function handleGenerate() {
-        setError(null);
-        const parsed = IdeaSchema.safeParse(form);
-        if (!parsed.success) {
-            setError('Please complete all required fields (title, idea, target market).');
+        const user = await getCurrentUser();
+
+        if (quota.used >= quota.limit) {
+            setError(
+                "You have reached your monthly generation limit. Please upgrade your plan.",
+            );
             return;
         }
+
+        setIsGenerating(true);
+        setError("");
+
         try {
-            setLoading(true);
-            // TODO:
-            // 1) Check entitlements (usage/quota)
-            // 2) Save a Project draft
-            // 3) Call Lambda -> Bedrock to generate PRD
-            // 4) Save outputs, redirect to /project/:id
-            await new Promise((r) => setTimeout(r, 800)); // mock
-            const fakeId = crypto.randomUUID();
-            nav({ to: `/project/${fakeId}` });
-        } catch (e: any) {
-            setError(e?.message ?? 'Failed to generate.');
+            console.log("Starting generation with data:", {
+                idea: formData.idea.substring(0, 50) + "...",
+                targetMarket: formData.targetMarket.substring(0, 50) + "...",
+                constraints: formData.constraints.substring(0, 50) + "...",
+                additionalContext: formData.additionalContext.substring(0, 50) + "...",
+            });
+
+            // Call the custom mutation
+            const response = await client.mutations.generatePRD({
+                idea: formData.idea,
+                targetMarket: formData.targetMarket,
+                constraints: formData.constraints || undefined,
+                additionalContext: formData.additionalContext || undefined,
+            });
+
+            console.log("Raw response:", response);
+
+            if (response.data) {
+                console.log("Response data:", response.data);
+                const prdData = JSON.parse(response.data as string);
+                console.log("Parsed PRD data:", prdData);
+
+                if (prdData.success) {
+                    setResult(prdData.data);
+
+                    // Update usage count
+                    if (userProfile) {
+                        await client.models.UserProfile.update({
+                            id: userProfile.id,
+                            generationsThisMonth: (userProfile.generationsThisMonth || 0) + 1,
+                        });
+                        setQuota((prev) => ({ ...prev, used: prev.used + 1 }));
+                    }
+
+                    // Save generation to history
+                    await client.models.Generation.create({
+                        userId: user.userId,
+                        idea: formData.idea,
+                        targetMarket: formData.targetMarket,
+                        constraints: formData.constraints,
+                        additionalContext: formData.additionalContext,
+                        productRequirements: prdData.data.productRequirements,
+                        userStories: prdData.data.userStories,
+                        risks: prdData.data.risks,
+                        mvpScope: prdData.data.mvpScope,
+                        status: "COMPLETED",
+                        createdAt: new Date().toISOString(),
+                        completedAt: new Date().toISOString(),
+                    });
+                } else {
+                    console.error("PRD generation failed:", prdData.error);
+                    setError(prdData.error || "Failed to generate PRD");
+                }
+            } else if (response.errors) {
+                console.error("GraphQL errors:", response.errors);
+                setError(
+                    `GraphQL Error: ${response.errors.map((e: any) => e.message).join(", ")}`,
+                );
+            } else {
+                console.error("No data in response");
+                setError("No data returned from generation");
+            }
+        } catch (err: any) {
+            console.error("Generation error:", err);
+            console.error("Error details:", {
+                message: err.message,
+                stack: err.stack,
+                name: err.name,
+            });
+            setError(err.message || "An error occurred during generation");
         } finally {
-            setLoading(false);
+            setIsGenerating(false);
         }
     }
 
+    const getPlanColor = (plan: string) => {
+        switch (plan) {
+            case "FREE":
+                return "default";
+            case "PRO":
+                return "primary";
+            case "ENTERPRISE":
+                return "secondary";
+            default:
+                return "default";
+        }
+    };
+
     return (
-        <Paper sx={{ p: 3 }}>
-            <Stack spacing={2}>
-                <Typography variant="h5">New Product Brief</Typography>
-                {error && <Alert severity="error">{error}</Alert>}
+        <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+            <Paper sx={{ p: 4 }}>
+                {!result ? (
+                    <>
+                        <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
+                            {steps.map((label) => (
+                                <Step key={label}>
+                                    <StepLabel>{label}</StepLabel>
+                                </Step>
+                            ))}
+                        </Stepper>
 
-                <TextField label="Project Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} fullWidth />
-                <TextField label="Idea" multiline minRows={3} value={form.idea} onChange={(e) => setForm({ ...form, idea: e.target.value })} fullWidth />
-                <TextField label="Target Market" value={form.targetMarket} onChange={(e) => setForm({ ...form, targetMarket: e.target.value })} fullWidth />
-                <TextField label="Constraints (optional)" multiline minRows={2} value={form.constraints} onChange={(e) => setForm({ ...form, constraints: e.target.value })} fullWidth />
+                        {activeStep === 0 && (
+                            <StepOne
+                                formData={formData}
+                                setFormData={setFormData}
+                                onNext={handleNext}
+                            />
+                        )}
 
-                <Divider />
-                <Stack direction="row" spacing={2}>
-                    <Button variant="contained" onClick={handleGenerate} disabled={loading}>
-                        {loading ? 'Generating…' : 'Generate PRD'}
-                    </Button>
-                    <Button variant="text" onClick={() => history.back()} disabled={loading}>
-                        Cancel
-                    </Button>
-                </Stack>
-            </Stack>
-        </Paper>
+                        {activeStep === 1 && (
+                            <StepTwo
+                                formData={formData}
+                                setFormData={setFormData}
+                                onNext={handleNext}
+                                onBack={handleBack}
+                            />
+                        )}
+
+                        {activeStep === 2 && (
+                            <StepThree
+                                formData={formData}
+                                onBack={handleBack}
+                                onGenerate={handleGenerate}
+                                isGenerating={isGenerating}
+                                error={error}
+                            />
+                        )}
+                    </>
+                ) : (
+                    <ResultsView
+                        result={result}
+                        formData={formData}
+                        onReset={handleReset}
+                    />
+                )}
+            </Paper>
+        </Container>
     );
 }

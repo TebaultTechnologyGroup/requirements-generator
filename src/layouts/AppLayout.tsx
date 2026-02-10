@@ -1,58 +1,139 @@
-
 // src/layouts/AppLayout.tsx
-import { PropsWithChildren } from 'react';
-import AppBar from '@mui/material/AppBar';
-import Toolbar from '@mui/material/Toolbar';
-import Typography from '@mui/material/Typography';
-import Box from '@mui/material/Box';
-import Container from '@mui/material/Container';
-import Button from '@mui/material/Button';
-import Stack from '@mui/material/Stack';
-import Chip from '@mui/material/Chip';
-import { useAuthenticator } from '@aws-amplify/ui-react';
-import { Link } from '@tanstack/react-router';
+import { Box } from "@mui/material";
+import TopNavBar from "../pages/components/TopNavBar";
+import { Outlet } from "react-router-dom";
+import { Hub } from "aws-amplify/utils";
+import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useAuthenticator } from "@aws-amplify/ui-react";
+import { Schema } from "../../amplify/data/resource";
+import { generateClient } from "aws-amplify/data";
+import "../amplifyConfig";
 
-type Props = PropsWithChildren<{
-  plan?: 'FREE' | 'PRO' | 'ENTERPRISE';
-  usage?: { used: number; limit: number };
-}>;
+const client = generateClient<Schema>();
 
-export default function AppLayout({ children, plan = 'FREE', usage = { used: 0, limit: 5 } }: Props) {
-  const { user, signOut } = useAuthenticator((context) => [context.user]);
+export default function AppLayout() {
+  const { user } = useAuthenticator();
+  const navigate = useNavigate();
+  const [setUserProfile] = useState<any>(null);
+  const [quota, setQuota] = useState({ used: 0, limit: 5 });
+  const [isAuthenticated, setIsAuthenticated] = useState(!!user);
+  const [plan] = useState("FREE");
+
+  useEffect(() => {
+    if (user) {
+      loadUserProfile();
+      setIsAuthenticated(true);
+    } else {
+      setIsAuthenticated(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    // if the user is not authenticated and trying to access /app, redirect to /
+    if (isAuthenticated === false && location.pathname.startsWith("/app")) {
+      navigate("/");
+      // else if the user is authenticated and trying to access /login or /register, redirect to /app/newproject
+    } else if (
+      isAuthenticated === true &&
+      !location.pathname.startsWith("/app")
+    ) {
+      navigate("/app/newproject");
+    }
+  }, [isAuthenticated, location.pathname, navigate]);
+
+  async function loadUserProfile() {
+    if (!user) return;
+    try {
+      // Load user profile
+      const { data: profiles } = await client.models.UserProfile.list({
+        filter: { userId: { eq: user.userId } },
+      });
+
+      if (profiles.length === 0) {
+        // Create new profile with FREE plan
+        const newProfile = await client.models.UserProfile.create({
+          userId: user.userId,
+          email: user.signInDetails?.loginId || "",
+          organization: "",
+          plan: "FREE",
+          generationsThisMonth: 0,
+          monthResetDate: new Date().toISOString(),
+        });
+        setUserProfile(newProfile.data);
+        setQuota({ used: 0, limit: 5 });
+      } else {
+        const profile = profiles[0];
+        setUserProfile(profile);
+
+        // Check if month has reset
+        const resetDate = new Date(profile.monthResetDate || "");
+        const now = new Date();
+        if (
+          now.getMonth() !== resetDate.getMonth() ||
+          now.getFullYear() !== resetDate.getFullYear()
+        ) {
+          // Reset counter
+          await client.models.UserProfile.update({
+            id: profile.id,
+            generationsThisMonth: 0,
+            monthResetDate: new Date().toISOString(),
+          });
+          setQuota({ used: 0, limit: getPlanLimit(profile.plan ?? 5) });
+        } else {
+          setQuota({
+            used: profile.generationsThisMonth || 0,
+            limit: getPlanLimit(profile.plan ?? 5),
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Error loading profile:", err);
+    }
+  }
+
+  function getPlanLimit(plan: string | number): number {
+    const planStr = String(plan);
+    switch (planStr) {
+      case "FREE":
+        return 5;
+      case "PRO":
+        return 50;
+      case "ENTERPRISE":
+        return 999999;
+      default:
+        return 5;
+    }
+  }
+
+  useEffect(() => {
+    if (isAuthenticated === false && location.pathname.startsWith("/app")) {
+      navigate("/");
+    } else if (
+      isAuthenticated === true &&
+      !location.pathname.startsWith("/app")
+    ) {
+      navigate("/app/newproject");
+    }
+  }, [isAuthenticated, navigate]);
+
+  // Listen for sign out events
+  Hub.listen("auth", ({ payload }) => {
+    switch (payload.event) {
+      case "signedOut":
+        setIsAuthenticated(false);
+        navigate("/");
+        break;
+      default:
+    }
+  });
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-      <AppBar position="fixed" elevation={0} color="inherit" sx={{ borderBottom: '1px solid #eee' }}>
-        <Toolbar sx={{ display: 'flex', gap: 2 }}>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            AI PRD Generator
-          </Typography>
-
-          <Stack direction="row" spacing={1} alignItems="center" mr={2}>
-            <Chip label={`Plan: ${plan}`} size="small" />
-            <Chip label={`Usage: ${usage.used}/${usage.limit}`} size="small" />
-            <Button variant="outlined" size="small" component={Link} to="/upgrade">
-              Upgrade
-            </Button>
-          </Stack>
-
-          {user ? (
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Typography variant="body2">{user?.signInDetails?.loginId}</Typography>
-              <Button onClick={signOut} variant="contained" color="primary" size="small">
-                Sign out
-              </Button>
-            </Stack>
-          ) : (
-            <Button variant="contained" component={Link} to="/auth">
-              Sign in
-            </Button>
-          )}
-        </Toolbar>
-      </AppBar>
-
-      <Toolbar /> {/* offset for fixed appbar */}
-      <Container maxWidth="lg" sx={{ py: 6 }}>{children}</Container>
+    <Box sx={{ display: "flex", minHeight: "100vh" }}>
+      <TopNavBar isAuthenticated={isAuthenticated} plan={plan} quota={quota} />
+      <Box sx={{ flexGrow: 1, mt: 5, p: 3 }}>
+        <Outlet />
+      </Box>
     </Box>
   );
 }

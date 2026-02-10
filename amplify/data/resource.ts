@@ -19,6 +19,7 @@ const schema = a.schema({
     .model({
       userId: a.string().required(),
       email: a.string().required(),
+      organization: a.string(),
       plan: a.enum(['FREE', 'PRO', 'ENTERPRISE']),
       generationsThisMonth: a.integer().default(0),
       monthResetDate: a.string(),

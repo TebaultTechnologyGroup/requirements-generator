@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { generateClient } from 'aws-amplify/data';
-import { useAuthenticator } from '@aws-amplify/ui-react';
-import type { Schema } from '../amplify/data/resource';
+import { useState, useEffect } from "react";
+import { generateClient } from "aws-amplify/data";
+import { useAuthenticator } from "@aws-amplify/ui-react";
+import type { Schema } from "../amplify/data/resource";
 import {
   Box,
   Container,
@@ -14,16 +14,16 @@ import {
   AppBar,
   Toolbar,
   Chip,
-} from '@mui/material';
-import { Logout as LogoutIcon } from '@mui/icons-material';
-import StepOne from './components/StepOne';
-import StepTwo from './components/StepTwo';
-import StepThree from './components/StepThree';
-import ResultsView from './components/ResultsView';
+} from "@mui/material";
+import { Logout as LogoutIcon } from "@mui/icons-material";
+import StepOne from "./components/StepOne";
+import StepTwo from "./components/StepTwo";
+import StepThree from "./components/StepThree";
+import ResultsView from "./components/ResultsView";
 
 const client = generateClient<Schema>();
 
-const steps = ['Product Idea', 'Target & Constraints', 'Review & Generate'];
+const steps = ["Product Idea", "Target & Constraints", "Review & Generate"];
 
 interface FormData {
   idea: string;
@@ -63,14 +63,14 @@ function App() {
   const { user, signOut } = useAuthenticator();
   const [activeStep, setActiveStep] = useState(0);
   const [formData, setFormData] = useState<FormData>({
-    idea: '',
-    targetMarket: '',
-    constraints: '',
-    additionalContext: '',
+    idea: "",
+    targetMarket: "",
+    constraints: "",
+    additionalContext: "",
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<PRDResult | null>(null);
-  const [error, setError] = useState<string>('');
+  const [error, setError] = useState<string>("");
   const [userProfile, setUserProfile] = useState<any>(null);
   const [quota, setQuota] = useState({ used: 0, limit: 5 });
 
@@ -89,8 +89,8 @@ function App() {
         // Create new profile with FREE plan
         const newProfile = await client.models.UserProfile.create({
           userId: user.userId,
-          email: user.signInDetails?.loginId || '',
-          plan: 'FREE',
+          email: user.signInDetails?.loginId || "",
+          plan: "FREE",
           generationsThisMonth: 0,
           monthResetDate: new Date().toISOString(),
         });
@@ -101,9 +101,12 @@ function App() {
         setUserProfile(profile);
 
         // Check if month has reset
-        const resetDate = new Date(profile.monthResetDate || '');
+        const resetDate = new Date(profile.monthResetDate || "");
         const now = new Date();
-        if (now.getMonth() !== resetDate.getMonth() || now.getFullYear() !== resetDate.getFullYear()) {
+        if (
+          now.getMonth() !== resetDate.getMonth() ||
+          now.getFullYear() !== resetDate.getFullYear()
+        ) {
           // Reset counter
           await client.models.UserProfile.update({
             id: profile.id,
@@ -119,17 +122,21 @@ function App() {
         }
       }
     } catch (err) {
-      console.error('Error loading profile:', err);
+      console.error("Error loading profile:", err);
     }
   }
 
   function getPlanLimit(plan: string | number): number {
     const planStr = String(plan);
     switch (planStr) {
-      case 'FREE': return 5;
-      case 'PRO': return 50;
-      case 'ENTERPRISE': return 999999;
-      default: return 5;
+      case "FREE":
+        return 5;
+      case "PRO":
+        return 50;
+      case "ENTERPRISE":
+        return 999999;
+      default:
+        return 5;
     }
   }
 
@@ -144,32 +151,34 @@ function App() {
   const handleReset = () => {
     setActiveStep(0);
     setFormData({
-      idea: '',
-      targetMarket: '',
-      constraints: '',
-      additionalContext: '',
+      idea: "",
+      targetMarket: "",
+      constraints: "",
+      additionalContext: "",
     });
     setResult(null);
-    setError('');
+    setError("");
   };
 
   async function handleGenerate() {
-    console.log('handleGenerate called in App.tsx');
+    console.log("handleGenerate called in App.tsx");
 
     if (quota.used >= quota.limit) {
-      setError('You have reached your monthly generation limit. Please upgrade your plan.');
+      setError(
+        "You have reached your monthly generation limit. Please upgrade your plan.",
+      );
       return;
     }
 
     setIsGenerating(true);
-    setError('');
+    setError("");
 
     try {
-      console.log('Starting generation with data:', {
-        idea: formData.idea.substring(0, 50) + '...',
-        targetMarket: formData.targetMarket.substring(0, 50) + '...',
-        constraints: formData.constraints.substring(0, 50) + '...',
-        additionalContext: formData.additionalContext.substring(0, 50) + '...'
+      console.log("Starting generation with data:", {
+        idea: formData.idea.substring(0, 50) + "...",
+        targetMarket: formData.targetMarket.substring(0, 50) + "...",
+        constraints: formData.constraints.substring(0, 50) + "...",
+        additionalContext: formData.additionalContext.substring(0, 50) + "...",
       });
 
       // Call the custom mutation
@@ -180,12 +189,12 @@ function App() {
         additionalContext: formData.additionalContext || undefined,
       });
 
-      console.log('Raw response:', response);
+      console.log("Raw response:", response);
 
       if (response.data) {
-        console.log('Response data:', response.data);
+        console.log("Response data:", response.data);
         const prdData = JSON.parse(response.data as string);
-        console.log('Parsed PRD data:', prdData);
+        console.log("Parsed PRD data:", prdData);
 
         if (prdData.success) {
           setResult(prdData.data);
@@ -196,7 +205,7 @@ function App() {
               id: userProfile.id,
               generationsThisMonth: (userProfile.generationsThisMonth || 0) + 1,
             });
-            setQuota(prev => ({ ...prev, used: prev.used + 1 }));
+            setQuota((prev) => ({ ...prev, used: prev.used + 1 }));
           }
 
           // Save generation to history
@@ -210,29 +219,31 @@ function App() {
             userStories: prdData.data.userStories,
             risks: prdData.data.risks,
             mvpScope: prdData.data.mvpScope,
-            status: 'COMPLETED',
+            status: "COMPLETED",
             createdAt: new Date().toISOString(),
             completedAt: new Date().toISOString(),
           });
         } else {
-          console.error('PRD generation failed:', prdData.error);
-          setError(prdData.error || 'Failed to generate PRD');
+          console.error("PRD generation failed:", prdData.error);
+          setError(prdData.error || "Failed to generate PRD");
         }
       } else if (response.errors) {
-        console.error('GraphQL errors:', response.errors);
-        setError(`GraphQL Error: ${response.errors.map((e: any) => e.message).join(', ')}`);
+        console.error("GraphQL errors:", response.errors);
+        setError(
+          `GraphQL Error: ${response.errors.map((e: any) => e.message).join(", ")}`,
+        );
       } else {
-        console.error('No data in response');
-        setError('No data returned from generation');
+        console.error("No data in response");
+        setError("No data returned from generation");
       }
     } catch (err: any) {
-      console.error('Generation error:', err);
-      console.error('Error details:', {
+      console.error("Generation error:", err);
+      console.error("Error details:", {
         message: err.message,
         stack: err.stack,
-        name: err.name
+        name: err.name,
       });
-      setError(err.message || 'An error occurred during generation');
+      setError(err.message || "An error occurred during generation");
     } finally {
       setIsGenerating(false);
     }
@@ -240,15 +251,21 @@ function App() {
 
   const getPlanColor = (plan: string) => {
     switch (plan) {
-      case 'FREE': return 'default';
-      case 'PRO': return 'primary';
-      case 'ENTERPRISE': return 'secondary';
-      default: return 'default';
+      case "FREE":
+        return "default";
+      case "PRO":
+        return "primary";
+      case "ENTERPRISE":
+        return "secondary";
+      default:
+        return "default";
     }
   };
 
   return (
-    <Box sx={{ flexGrow: 1, minHeight: '100vh', bgcolor: 'background.default' }}>
+    <Box
+      sx={{ flexGrow: 1, minHeight: "100vh", bgcolor: "background.default" }}
+    >
       <AppBar position="static">
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
@@ -256,7 +273,7 @@ function App() {
           </Typography>
 
           {userProfile && (
-            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mr: 2 }}>
+            <Box sx={{ display: "flex", gap: 2, alignItems: "center", mr: 2 }}>
               <Chip
                 label={userProfile.plan}
                 color={getPlanColor(userProfile.plan)}
@@ -268,11 +285,7 @@ function App() {
             </Box>
           )}
 
-          <Button
-            color="inherit"
-            onClick={signOut}
-            startIcon={<LogoutIcon />}
-          >
+          <Button color="inherit" onClick={signOut} startIcon={<LogoutIcon />}>
             Sign Out
           </Button>
         </Toolbar>

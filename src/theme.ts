@@ -7,6 +7,7 @@ export const theme = createTheme({
     mode: 'light',
     primary: { main: '#4f46e5' }, // indigo-600-ish
     secondary: { main: '#06b6d4' }, // cyan-500-ish
+    warning: { main: '#f5170b' }, // amber-500-ish
     background: {
       default: '#f7f7fb',
       paper: '#ffffff',
