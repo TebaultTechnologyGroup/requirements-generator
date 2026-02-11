@@ -26,7 +26,8 @@ import {
 import { useAuthenticator } from "@aws-amplify/ui-react";
 
 export default function LandingPage() {
-  const { toSignIn } = useAuthenticator((context) => [context.toSignIn]);
+  const { toSignIn } = useAuthenticator();
+
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
       {/* Hero Section */}

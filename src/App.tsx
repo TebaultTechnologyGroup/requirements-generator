@@ -61,7 +61,7 @@ interface PRDResult {
 }
 
 function AuthenticatedApp() {
-  const { user, signOut } = useAuthenticator((context) => [context.user]);
+  const { user, signOut } = useAuthenticator();
   const [activeStep, setActiveStep] = useState(0);
   const [formData, setFormData] = useState<FormData>({
     idea: "",
@@ -347,7 +347,7 @@ function AuthenticatedApp() {
 }
 
 function App() {
-  const { route } = useAuthenticator((context) => [context.route]);
+  const { route } = useAuthenticator();
 
   if (route !== "authenticated") {
     return <LandingPage />;
